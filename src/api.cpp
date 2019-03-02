@@ -1,6 +1,6 @@
 #include "api.h"
 
-#include "Box2D/Box2D.h"
+#include <Box2D/Box2D.h>
 
 int hello() {
   	// Define the gravity vector.

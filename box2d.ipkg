@@ -1,0 +1,8 @@
+package box2d
+
+sourcedir = src
+modules = Physics.Box2D
+
+makefile = Makefile
+
+objs = box2d.o, box2d.h, api.o, api.h

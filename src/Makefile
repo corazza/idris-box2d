@@ -1,6 +1,6 @@
 CC = g++
 # CFLAGS = -Wall `idris --include` -l:libBox2D.a
-CFLAGS = -Wall `idris --include` -lBox2D
+CPPFLAGS = -Wall `idris --include` -lBox2D -fpermissive
 # CPPFLAGS = -fpermissive
 
 # box2d.o: api.o box2d.c box2d.h

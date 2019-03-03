@@ -2,6 +2,15 @@
 
 #include <Box2D/Box2D.h>
 
+void *createWorld(double x, double y) {
+  b2Vec2 gravity(x, y);
+  return new b2World(gravity);
+}
+
+void destroyWorld(b2World *world) {
+  delete world;
+}
+
 int hello() {
         // Define the gravity vector.
         b2Vec2 gravity(0.0f, -10.0f);

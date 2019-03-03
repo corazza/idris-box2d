@@ -1,8 +1,10 @@
 package box2d
 
+pkgs = contrib
+
 sourcedir = src
-modules = Physics.Box2D
+modules = Physics.Box2D, Physics.Vector2D
 
 makefile = Makefile
 
-objs = box2d.o, box2d.h, api.o, api.h
+objs = box2d.o, box2d.h

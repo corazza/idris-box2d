@@ -1,9 +1,19 @@
 #ifndef BOX2DA_H__
 #define BOX2DA_H__
 
-// #include "Box2D/Box2D.h"
 #include <idris_rts.h>
 
-int test();
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+int hello();
+
+void *createWorld(double x, double y);
+void destroyWorld(void *world);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

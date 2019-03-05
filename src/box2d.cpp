@@ -24,11 +24,12 @@ void *createGroundBody(void *world_, double posx, double posy, double dimx, doub
 }
 
 void *createBox(void *world_, double posx, double posy, double dimx, double dimy,
-                double density, double friction) {
+                double angle, double density, double friction) {
   b2World *world = (b2World *) world_;
   b2BodyDef bodyDef;
   bodyDef.type = b2_dynamicBody;
   bodyDef.position.Set(posx, posy);
+  bodyDef.angle = angle;
   b2Body* body = world->CreateBody(&bodyDef);
   b2PolygonShape dynamicBox;
   dynamicBox.SetAsBox(dimy, dimy);

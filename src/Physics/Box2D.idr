@@ -45,6 +45,7 @@ interface Box2DPhysics (m : Type -> Type) where
   createBox : (sbox : Var) ->
               (position : Vector2D) ->
               (dimensions : Vector2D) ->
+              (angle : Double) ->
               (density : Double) -> (friction : Double) ->
               ST m Body [sbox ::: SBox2D]
 
@@ -78,11 +79,12 @@ implementation Box2DPhysics IO where
                           world posx posy dimx dimy
     pure $ MkBody ptr
 
-  createBox box (posx, posy) (dimx, dimy) density friction = with ST do
+  createBox box (posx, posy) (dimx, dimy) angle density friction = with ST do
     MkWorld world <- read box
     ptr <- lift $ foreign FFI_C "createBox"
-                          (Ptr -> Double -> Double -> Double -> Double -> Double -> Double -> IO Ptr)
-                          world posx posy dimx dimy density friction
+                          (Ptr -> Double -> Double -> Double -> Double ->
+                           Double -> Double -> Double -> IO Ptr)
+                          world posx posy dimx dimy angle density friction
     pure $ MkBody ptr
 
   step box ts vel pos = with ST do

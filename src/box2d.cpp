@@ -18,7 +18,7 @@ void *createGroundBody(void *world_, double posx, double posy, double dimx, doub
   groundBodyDef.position.Set(posx, posy);
   b2Body* groundBody = world->CreateBody(&groundBodyDef);
   b2PolygonShape groundBox;
-  groundBox.SetAsBox(50.0f, 10.0f);
+  groundBox.SetAsBox(dimx, dimy);
   groundBody->CreateFixture(&groundBox, 0.0f);
   return groundBody;
 }

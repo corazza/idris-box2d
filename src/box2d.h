@@ -18,9 +18,12 @@ void *createBox(void *world, double posx, double posy, double dimx, double dimy,
 
 void step(void *world, double timeStep, int velocityIterations, int positionIterations);
 
-double getPosx(void* body);
-double getPosy(void* body);
-double getAngle(void* body);
+void applyImpulse(void *world_, void *body_, double x, double y);
+
+double getMass(void *body);
+double getPosx(void *body);
+double getPosy(void *body);
+double getAngle(void *body);
 
 #ifdef __cplusplus
 }

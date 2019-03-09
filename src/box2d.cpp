@@ -46,6 +46,18 @@ void step(void *world_, double timeStep, int velocityIterations, int positionIte
   world->Step(timeStep, velocityIterations, positionIterations);
 }
 
+void applyImpulse(void *world_, void *body_, double x, double y) {
+  b2World *world = (b2World *) world_;
+  b2Body *body = (b2Body *) body_;
+  b2Vec2 impulse(x, y);
+  body->ApplyLinearImpulse(impulse, body->GetWorldCenter(), true);
+}
+
+double getMass(void *body_) {
+  b2Body *body = (b2Body *) body_;
+  return body->GetMass();
+}
+
 double getPosx(void* body_) {
   b2Body *body = (b2Body *) body_;
   return body->GetPosition().x;

@@ -55,6 +55,9 @@ interface Box2DPhysics (m : Type -> Type) where
          (positionIterations : Int) ->
          ST m () [box ::: SBox2D]
 
+  applyImpulse : (box : Var) -> Body -> Vector2D -> ST m () [box ::: SBox2D]
+
+  getMass : (body : Body) -> m Double
   getPosition : (body : Body) -> m Vector2D
   getAngle : (body : Body) -> m Double
 
@@ -91,6 +94,13 @@ implementation Box2DPhysics IO where
     MkWorld world <- read box
     lift $ foreign FFI_C "step" (Ptr -> Double -> Int -> Int -> IO ())
                    world ts vel pos
+
+  applyImpulse box (MkBody body) (a, b) = with ST do
+    MkWorld world <- read box
+    lift $ foreign FFI_C "applyImpulse" (Ptr -> Ptr -> Double -> Double -> IO ())
+                   world body a b
+
+  getMass (MkBody ptr) = foreign FFI_C "getMass" (Ptr -> IO Double) ptr >>= pure
 
   getPosition (MkBody ptr) = do
     x <- foreign FFI_C "getPosx" (Ptr -> IO Double) ptr

@@ -46,8 +46,7 @@ void step(void *world_, double timeStep, int velocityIterations, int positionIte
   world->Step(timeStep, velocityIterations, positionIterations);
 }
 
-void applyImpulse(void *world_, void *body_, double x, double y) {
-  b2World *world = (b2World *) world_;
+void applyImpulse(void *body_, double x, double y) {
   b2Body *body = (b2Body *) body_;
   b2Vec2 impulse(x, y);
   body->ApplyLinearImpulse(impulse, body->GetWorldCenter(), true);
@@ -71,6 +70,16 @@ double getPosy(void* body_) {
 double getAngle(void* body_) {
   b2Body *body = (b2Body *) body_;
   return ((b2Body *) body)->GetAngle();
+}
+
+double getVelx(void* body_) {
+  b2Body *body = (b2Body *) body_;
+  return body->GetLinearVelocity().x;
+}
+
+double getVely(void* body_) {
+  b2Body *body = (b2Body *) body_;
+  return body->GetLinearVelocity().y;
 }
 
 // TODO destroying bodies

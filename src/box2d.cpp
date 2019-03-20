@@ -12,7 +12,7 @@ void destroyWorld(void *world_) {
   delete world;
 }
 
-void *createGroundBody(void *world_, double posx, double posy, double dimx, double dimy) {
+void *createWall(void *world_, double posx, double posy, double dimx, double dimy) {
   b2World *world = (b2World *) world_;
   b2BodyDef groundBodyDef;
   groundBodyDef.position.Set(posx, posy);

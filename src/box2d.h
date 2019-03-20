@@ -11,7 +11,7 @@ void *createWorld(double x, double y);
 
 void destroyWorld(void *world);
 
-void *createGroundBody(void *world, double posx, double posy, double dimx, double dimy);
+void *createWall(void *world, double posx, double posy, double dimx, double dimy);
 
 void *createBox(void *world, double posx, double posy, double dimx, double dimy,
                 double angle, double density, double friction);

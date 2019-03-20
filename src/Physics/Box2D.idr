@@ -36,10 +36,10 @@ interface Box2DPhysics (m : Type -> Type) where
   createWorld : (gravity : Vector2D) -> ST m Var [add SBox2D]
   destroyWorld : (sbox : Var) -> ST m () [remove sbox SBox2D]
 
-  createGroundBody : (sbox : Var) ->
-                     (position : Vector2D) ->
-                     (dimensions : Vector2D) ->
-                     ST m Body [sbox ::: SBox2D]
+  createWall : (sbox : Var) ->
+               (position : Vector2D) ->
+               (dimensions : Vector2D) ->
+               ST m Body [sbox ::: SBox2D]
   -- createBody : (sbox : Var) -> (def : BodyDef) -> ST m Body [sbox ::: SBox2D]
 
   createBox : (sbox : Var) ->
@@ -76,9 +76,9 @@ implementation Box2DPhysics IO where
     lift $ foreign FFI_C "destroyWorld" (Ptr -> IO ()) world
     delete sbox;
 
-  createGroundBody sbox (posx, posy) (dimx, dimy) = with ST do
+  createWall sbox (posx, posy) (dimx, dimy) = with ST do
     MkWorld world <- read sbox
-    ptr <- lift $ foreign FFI_C "createGroundBody"
+    ptr <- lift $ foreign FFI_C "createWall"
                           (Ptr -> Double -> Double -> Double -> Double -> IO Ptr)
                           world posx posy dimx dimy
     pure $ MkBody ptr

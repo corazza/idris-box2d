@@ -32,3 +32,7 @@ Cast Vector2D (Int, Int) where
 export
 nullVector : Vector2D
 nullVector = (0, 0)
+
+export
+magnitude : Vector2D -> Double
+magnitude (a, b) = sqrt((Doubles.pow a 2) + (Doubles.pow b 2))

@@ -14,23 +14,14 @@ data Body = MkBody Ptr
 export
 data World = MkWorld Ptr
 
-
--- public export
--- interface Box2DIO (m : Type -> Type) where
---   getPosition : (body : Body) -> m Vector2D
---   getAngle : (body : Body) -> m Double
---
--- implementation Box2DIO IO where
---   getPosition (MkBody ptr) = do
---     x <- foreign FFI_C "getPosx" (Ptr -> IO Double) ptr
---     y <- foreign FFI_C "getPosy" (Ptr -> IO Double) ptr
---     pure (x, y)
---
---   getAngle (MkBody ptr) =
---     foreign FFI_C "getAngle" (Ptr -> IO Double) ptr
-
 public export
-data Event = Collision Body Body
+data Event = CollisionStart (Int, Body) (Int, Body)
+           | CollisionStop (Int, Body) (Int, Body)
+
+export
+Show Event where
+  show (CollisionStart (id_one, _) (id_two, _)) = "CollisionStart " ++ show id_one ++ " " ++ show id_two
+  show (CollisionStop (id_one, _) (id_two, _)) = "CollisionStop " ++ show id_one ++ " " ++ show id_two
 
 public export
 interface Box2DPhysics (m : Type -> Type) where
@@ -57,6 +48,9 @@ interface Box2DPhysics (m : Type -> Type) where
          (velocityIterations : Int) ->
          (positionIterations : Int) ->
          ST m () [box ::: SBox2D]
+
+  pollEvent : (box : Var) -> ST m (Maybe Event) [box ::: SBox2D]
+  pollEvents : (box : Var) -> ST m (List Event) [box ::: SBox2D]
 
   applyImpulse : (box : Var) -> Body -> Vector2D -> ST m () [box ::: SBox2D]
 
@@ -100,6 +94,24 @@ implementation Box2DPhysics IO where
     MkWorld world <- read box
     lift $ foreign FFI_C "step" (Ptr -> Double -> Int -> Int -> IO ())
                    world ts vel pos
+
+  pollEvent box = with ST do
+    ptr <- lift $ foreign FFI_C "topCollision" (IO Ptr)
+    if ptr == null then pure Nothing else with ST do
+      ptr_body_one <- lift $ foreign FFI_C "getBodyOne" (Ptr -> IO Ptr) ptr
+      ptr_body_two <- lift $ foreign FFI_C "getBodyTwo" (Ptr -> IO Ptr) ptr
+      id_one <- lift $ foreign FFI_C "getIdOne" (Ptr -> IO Int) ptr
+      id_two <- lift $ foreign FFI_C "getIdTwo" (Ptr -> IO Int) ptr
+      start <- lift $ foreign FFI_C "getStart" (Ptr -> IO Int) ptr
+      lift $ foreign FFI_C "popCollision" (IO ())
+      let event = if start == 1
+        then CollisionStart (id_one, MkBody ptr_body_one) (id_two, MkBody ptr_body_two)
+        else CollisionStop (id_one, MkBody ptr_body_one) (id_two, MkBody ptr_body_two)
+      pure $ Just event
+
+  pollEvents box = with ST do
+    Just event <- pollEvent box | pure []
+    pure $ event :: !(pollEvents box) -- not tail-recursive? probably not a major problem
 
   applyImpulse box (MkBody body) (a, b) = lift $
     foreign FFI_C "applyImpulse" (Ptr -> Double -> Double -> IO ())

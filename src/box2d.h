@@ -15,10 +15,6 @@ extern "C" {
 //
 // world_data single;
 
-struct body_data {
-  int id;
-};
-
 void *createWorld(double x, double y);
 
 void destroyWorld(void *world);
@@ -27,6 +23,15 @@ void *createWall(void *world, double posx, double posy, double dimx, double dimy
 
 void *createBox(void *world, double posx, double posy, double dimx, double dimy,
                 double angle, double density, double friction);
+
+// disgusting concepts
+void *topCollision();
+void popCollision();
+void *getBodyOne(void *collision);
+void *getBodyTwo(void *collision);
+int getIdOne(void *collision);
+int getIdTwo(void *collision);
+int getStart(void *collision);
 
 void step(void *world, double timeStep, int velocityIterations, int positionIterations);
 

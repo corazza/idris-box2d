@@ -2,7 +2,10 @@
 
 #include <Box2D/Box2D.h>
 
+int wglobal_id;
+
 void *createWorld(double x, double y) {
+  wglobal_id = 0;
   b2Vec2 gravity(x, y);
   return new b2World(gravity);
 }
@@ -16,6 +19,9 @@ void *createWall(void *world_, double posx, double posy, double dimx, double dim
   b2World *world = (b2World *) world_;
   b2BodyDef groundBodyDef;
   groundBodyDef.position.Set(posx, posy);
+  auto bodyData = new body_data;
+  bodyData->id = wglobal_id++;
+  groundBodyDef.userData = bodyData;
   b2Body* groundBody = world->CreateBody(&groundBodyDef);
   b2PolygonShape groundBox;
   groundBox.SetAsBox(dimx, dimy);
@@ -30,6 +36,9 @@ void *createBox(void *world_, double posx, double posy, double dimx, double dimy
   bodyDef.type = b2_dynamicBody;
   bodyDef.position.Set(posx, posy);
   bodyDef.angle = angle;
+  auto bodyData = new body_data;
+  bodyData->id = wglobal_id++;
+  bodyDef.userData = bodyData;
   b2Body* body = world->CreateBody(&bodyDef);
   b2PolygonShape dynamicBox;
   dynamicBox.SetAsBox(dimy, dimy);
@@ -50,6 +59,12 @@ void applyImpulse(void *body_, double x, double y) {
   b2Body *body = (b2Body *) body_;
   b2Vec2 impulse(x, y);
   body->ApplyLinearImpulse(impulse, body->GetWorldCenter(), true);
+}
+
+int getId(void *body_) {
+  b2Body *body = (b2Body *) body_;
+  body_data *bodyData = (body_data*) body->GetUserData();
+  return bodyData->id;
 }
 
 double getMass(void *body_) {

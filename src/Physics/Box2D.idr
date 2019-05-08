@@ -30,6 +30,9 @@ data World = MkWorld Ptr
 --     foreign FFI_C "getAngle" (Ptr -> IO Double) ptr
 
 public export
+data Event = Collision Body Body
+
+public export
 interface Box2DPhysics (m : Type -> Type) where
   SBox2D : Type
 
@@ -39,7 +42,7 @@ interface Box2DPhysics (m : Type -> Type) where
   createWall : (sbox : Var) ->
                (position : Vector2D) ->
                (dimensions : Vector2D) ->
-               ST m Body [sbox ::: SBox2D]
+               ST m (Int, Body) [sbox ::: SBox2D]
   -- createBody : (sbox : Var) -> (def : BodyDef) -> ST m Body [sbox ::: SBox2D]
 
   createBox : (sbox : Var) ->
@@ -47,7 +50,7 @@ interface Box2DPhysics (m : Type -> Type) where
               (dimensions : Vector2D) ->
               (angle : Double) ->
               (density : Double) -> (friction : Double) ->
-              ST m Body [sbox ::: SBox2D]
+              ST m (Int, Body) [sbox ::: SBox2D]
 
   step : (box : Var) ->
          (timeStep : Double) ->
@@ -81,7 +84,8 @@ implementation Box2DPhysics IO where
     ptr <- lift $ foreign FFI_C "createWall"
                           (Ptr -> Double -> Double -> Double -> Double -> IO Ptr)
                           world posx posy dimx dimy
-    pure $ MkBody ptr
+    id <- lift $ foreign FFI_C "getId" (Ptr -> IO Int) ptr
+    pure $ (id, MkBody ptr)
 
   createBox box (posx, posy) (dimx, dimy) angle density friction = with ST do
     MkWorld world <- read box
@@ -89,7 +93,8 @@ implementation Box2DPhysics IO where
                           (Ptr -> Double -> Double -> Double -> Double ->
                            Double -> Double -> Double -> IO Ptr)
                           world posx posy dimx dimy angle density friction
-    pure $ MkBody ptr
+    id <- lift $ foreign FFI_C "getId" (Ptr -> IO Int) ptr
+    pure $ (id, MkBody ptr)
 
   step box ts vel pos = with ST do
     MkWorld world <- read box

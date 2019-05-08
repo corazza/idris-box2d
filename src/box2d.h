@@ -7,6 +7,18 @@
 extern "C" {
 #endif
 
+// struct world_data {
+//   int id_counter;
+//
+//   world_data() : id_counter(0){}
+// };
+//
+// world_data single;
+
+struct body_data {
+  int id;
+};
+
 void *createWorld(double x, double y);
 
 void destroyWorld(void *world);
@@ -20,6 +32,7 @@ void step(void *world, double timeStep, int velocityIterations, int positionIter
 
 void applyImpulse(void *body_, double x, double y);
 
+int getId(void *body);
 double getMass(void *body);
 double getPosx(void *body);
 double getPosy(void *body);

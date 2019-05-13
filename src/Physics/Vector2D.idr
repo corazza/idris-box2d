@@ -35,4 +35,8 @@ nullVector = (0, 0)
 
 export
 magnitude : Vector2D -> Double
-magnitude (a, b) = sqrt((Doubles.pow a 2) + (Doubles.pow b 2))
+magnitude (a, b) = sqrt(a*a + b*b)
+
+export
+normed : Vector2D -> Vector2D
+normed x = let magnitude' = 1.0/(magnitude x) in magnitude' `scale` x

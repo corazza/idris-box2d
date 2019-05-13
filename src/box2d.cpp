@@ -117,7 +117,7 @@ void *createBox(void *world_, double posx, double posy, double dimx, double dimy
   bodyDef.userData = bodyData;
   b2Body* body = world->CreateBody(&bodyDef);
   b2PolygonShape dynamicBox;
-  dynamicBox.SetAsBox(dimy, dimy);
+  dynamicBox.SetAsBox(dimx, dimy);
   b2FixtureDef fixtureDef;
   fixtureDef.shape = &dynamicBox;
   fixtureDef.density = density;

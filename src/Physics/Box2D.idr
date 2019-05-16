@@ -15,13 +15,21 @@ export
 data World = MkWorld Ptr
 
 public export
-data Event = CollisionStart (Int, Body) (Int, Body)
-           | CollisionStop (Int, Body) (Int, Body)
+record CollisionForBody where
+  constructor MkCollisionForBody
+  id : Int
+  body : Body
+  velocity : Vector2D
 
-export
-Show Event where
-  show (CollisionStart (id_one, _) (id_two, _)) = "CollisionStart " ++ show id_one ++ " " ++ show id_two
-  show (CollisionStop (id_one, _) (id_two, _)) = "CollisionStop " ++ show id_one ++ " " ++ show id_two
+public export
+data Event = CollisionStart CollisionForBody CollisionForBody
+           | CollisionStop CollisionForBody CollisionForBody
+
+-- TODO
+-- export
+-- Show Event where
+--   show (CollisionStart (id_one, _) (id_two, _)) = "CollisionStart " ++ show id_one ++ " " ++ show id_two
+--   show (CollisionStop (id_one, _) (id_two, _)) = "CollisionStop " ++ show id_one ++ " " ++ show id_two
 
 public export
 interface Box2DPhysics (m : Type -> Type) where
@@ -42,6 +50,10 @@ interface Box2DPhysics (m : Type -> Type) where
               (angle : Double) ->
               (density : Double) -> (friction : Double) ->
               ST m (Int, Body) [sbox ::: SBox2D]
+
+  -- terrible inconsistency in handling identity
+  destroy : (box : Var) -> (body : Body) -> ST m () [box ::: SBox2D]
+  -- destroyById : (box : Var) -> (id : Int) -> ST m () [box ::: SBox2D]
 
   step : (box : Var) ->
          (timeStep : Double) ->
@@ -90,6 +102,10 @@ implementation Box2DPhysics IO where
     id <- lift $ foreign FFI_C "getId" (Ptr -> IO Int) ptr
     pure $ (id, MkBody ptr)
 
+  destroy box (MkBody body) = with ST do
+    MkWorld world <- read box
+    lift $ foreign FFI_C "destroy" (Ptr -> Ptr -> IO ()) world body
+
   step box ts vel pos = with ST do
     MkWorld world <- read box
     lift $ foreign FFI_C "step" (Ptr -> Double -> Int -> Int -> IO ())
@@ -103,10 +119,16 @@ implementation Box2DPhysics IO where
       id_one <- lift $ foreign FFI_C "getIdOne" (Ptr -> IO Int) ptr
       id_two <- lift $ foreign FFI_C "getIdTwo" (Ptr -> IO Int) ptr
       start <- lift $ foreign FFI_C "getStart" (Ptr -> IO Int) ptr
+      velx_one <- lift $ foreign FFI_C "getColVelx" (Ptr -> Int -> IO Double) ptr 1
+      velx_two <- lift $ foreign FFI_C "getColVelx" (Ptr -> Int -> IO Double) ptr 2
+      vely_one <- lift $ foreign FFI_C "getColVely" (Ptr -> Int -> IO Double) ptr 1
+      vely_two <- lift $ foreign FFI_C "getColVely" (Ptr -> Int -> IO Double) ptr 2
       lift $ foreign FFI_C "popCollision" (IO ())
+      let for_one = MkCollisionForBody id_one (MkBody ptr_body_one) (velx_one, vely_one)
+      let for_two = MkCollisionForBody id_two (MkBody ptr_body_two) (velx_two, vely_two)
       let event = if start == 1
-        then CollisionStart (id_one, MkBody ptr_body_one) (id_two, MkBody ptr_body_two)
-        else CollisionStop (id_one, MkBody ptr_body_one) (id_two, MkBody ptr_body_two)
+        then CollisionStart for_one for_two
+        else CollisionStop for_one for_two
       pure $ Just event
 
   pollEvents box = with ST do
@@ -130,4 +152,5 @@ implementation Box2DPhysics IO where
   getVelocity (MkBody ptr) = do
     x <- foreign FFI_C "getVelx" (Ptr -> IO Double) ptr
     y <- foreign FFI_C "getVely" (Ptr -> IO Double) ptr
+    -- printLn (x, y)
     pure (x, y)

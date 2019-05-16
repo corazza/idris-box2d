@@ -40,3 +40,7 @@ magnitude (a, b) = sqrt(a*a + b*b)
 export
 normed : Vector2D -> Vector2D
 normed x = let magnitude' = 1.0/(magnitude x) in magnitude' `scale` x
+
+export
+angle : Vector2D -> Double
+angle (x, y) = atan2 y x

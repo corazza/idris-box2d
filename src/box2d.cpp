@@ -10,11 +10,25 @@ struct body_data {
 
 struct collision_data {
   bool start;
-  b2Body *one, *two;
-  int id_one, id_two;
 
-  collision_data(bool start, b2Body *one, b2Body *two, int id_one, int id_two) :
-    start(start), one(one), two(two), id_one(id_one), id_two(id_two) {}
+  // collision data for a single body
+  struct for_body {
+    b2Body *body;
+    double velx, vely; // velocity on collision
+
+    for_body(b2Body *body) : body(body) {
+      velx = body->GetLinearVelocity().x;
+      vely = body->GetLinearVelocity().y;
+    }
+
+    int id() {
+      body_data* data = (body_data *) body->GetUserData();
+      return data->id;
+    }
+  } one, two;
+
+  collision_data(bool start, b2Body *one, b2Body *two) :
+    start(start), one(one), two(two) {}
 };
 
 struct MyContactListener : public b2ContactListener {
@@ -23,9 +37,8 @@ struct MyContactListener : public b2ContactListener {
   void process(b2Contact *contact, bool start) {
     b2Body *one = contact->GetFixtureA()->GetBody();
     b2Body *two = contact->GetFixtureB()->GetBody();
-    body_data* oneData = (body_data *) one->GetUserData();
-    body_data* twoData = (body_data *) two->GetUserData();
-    collisions.push(collision_data(start, one, two, oneData->id, twoData->id));
+
+    collisions.push(collision_data(start, one, two));
   }
 
   void BeginContact(b2Contact* contact) {
@@ -53,22 +66,34 @@ void popCollision() {
 
 void *getBodyOne(void *collision_) {
   collision_data *collision = (collision_data *) collision_;
-  return collision->one;
+  return collision->one.body;
 }
 
 void *getBodyTwo(void *collision_) {
   collision_data *collision = (collision_data *) collision_;
-  return collision->two;
+  return collision->two.body;
 }
 
 int getIdOne(void *collision_) {
   collision_data *collision = (collision_data *) collision_;
-  return collision->id_one;
+  return collision->one.id();
 }
 
 int getIdTwo(void *collision_) {
   collision_data *collision = (collision_data *) collision_;
-  return collision->id_two;
+  return collision->two.id();
+}
+
+double getColVelx(void *collision_, int selector) {
+  assert(selector == 1 || selector == 2);
+  collision_data *collision = (collision_data *) collision_;
+  return selector==1 ? collision->one.velx : collision->two.velx;
+}
+
+double getColVely(void *collision_, int selector) {
+  assert(selector == 1 || selector == 2);
+  collision_data *collision = (collision_data *) collision_;
+  return selector==1 ? collision->one.vely : collision->two.vely;
 }
 
 int getStart(void *collision_) {
@@ -115,6 +140,7 @@ void *createBox(void *world_, double posx, double posy, double dimx, double dimy
   auto bodyData = new body_data;
   bodyData->id = wglobal_id++;
   bodyDef.userData = bodyData;
+  bodyDef.bullet = true;
   b2Body* body = world->CreateBody(&bodyDef);
   b2PolygonShape dynamicBox;
   dynamicBox.SetAsBox(dimx, dimy);
@@ -124,6 +150,12 @@ void *createBox(void *world_, double posx, double posy, double dimx, double dimy
   fixtureDef.friction = friction;
   body->CreateFixture(&fixtureDef);
   return body;
+}
+
+void destroy(void *world_, void *body_) {
+  b2World *world = (b2World *) world_;
+  b2Body *body = (b2Body *) body_;
+  world->DestroyBody(body);
 }
 
 void step(void *world_, double timeStep, int velocityIterations, int positionIterations) {

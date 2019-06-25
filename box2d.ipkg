@@ -3,7 +3,11 @@ package box2d
 pkgs = contrib
 
 sourcedir = src
-modules = Physics.Box2D, Physics.Vector2D
+
+modules = Physics.Box2D
+        , Physics.Box2D.Definitions
+        , Physics.Box2D.Defaults
+        , Physics.Vector2D
 
 makefile = Makefile
 

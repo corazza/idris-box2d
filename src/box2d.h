@@ -19,6 +19,13 @@ void *createWorld(double x, double y);
 
 void destroyWorld(void *world);
 
+void *createBody(void *world, int type, double posx, double posy, double angle, int fixedRotation, int bullet);
+void *createFixture(void *body, void *shape, double density, double friction, double restitution);
+void *createFixtureCircle(void *body, double r, double offx, double offy, double angle,
+                          double density, double friction, double restitution);
+void *createFixtureBox(void *body, double w, double h, double offx, double offy, double angle,
+                          double density, double friction, double restitution);
+
 void *createWall(void *world, double posx, double posy, double dimx, double dimy);
 
 void *createBox(void *world, double posx, double posy, double dimx, double dimy,
@@ -27,8 +34,8 @@ void *createBox(void *world, double posx, double posy, double dimx, double dimy,
 void destroy(void *world, void *body);
 
 // disgusting concepts
-void *topCollision();
-void popCollision();
+void *topCollision(void *world);
+void popCollision(void *world);
 void *getBodyOne(void *collision);
 void *getBodyTwo(void *collision);
 int getIdOne(void *collision);

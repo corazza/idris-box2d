@@ -4,6 +4,7 @@
 #include <queue>
 #include <iostream>
 
+// held in body.user_data
 struct body_data {
   int id;
 };
@@ -50,117 +51,98 @@ struct MyContactListener : public b2ContactListener {
   }
 };
 
-// bad TODO fix
-int wglobal_id;
-MyContactListener *contactListener;
+// wraps a world pointer and user data
+struct world_data {
+  b2World *world;
+  int id_counter;
+  MyContactListener *contactListener;
 
-void *topCollision() {
-  if (!contactListener->collisions.empty())
-    return &contactListener->collisions.front();
-  else return nullptr;
-}
+  world_data(b2World *world)
+    : world(world), id_counter(0), contactListener(new MyContactListener) {
+    world->SetContactListener(contactListener);
+  }
 
-void popCollision() {
-  contactListener->collisions.pop();
-}
-
-void *getBodyOne(void *collision_) {
-  collision_data *collision = (collision_data *) collision_;
-  return collision->one.body;
-}
-
-void *getBodyTwo(void *collision_) {
-  collision_data *collision = (collision_data *) collision_;
-  return collision->two.body;
-}
-
-int getIdOne(void *collision_) {
-  collision_data *collision = (collision_data *) collision_;
-  return collision->one.id();
-}
-
-int getIdTwo(void *collision_) {
-  collision_data *collision = (collision_data *) collision_;
-  return collision->two.id();
-}
-
-double getColVelx(void *collision_, int selector) {
-  assert(selector == 1 || selector == 2);
-  collision_data *collision = (collision_data *) collision_;
-  return selector==1 ? collision->one.velx : collision->two.velx;
-}
-
-double getColVely(void *collision_, int selector) {
-  assert(selector == 1 || selector == 2);
-  collision_data *collision = (collision_data *) collision_;
-  return selector==1 ? collision->one.vely : collision->two.vely;
-}
-
-int getStart(void *collision_) {
-  collision_data *collision = (collision_data *) collision_;
-  return collision->start ? 1 : 0;
-}
+  ~world_data() {
+    delete world;
+    delete contactListener;
+  }
+};
 
 void *createWorld(double x, double y) {
-  wglobal_id = 0;
   b2Vec2 gravity(x, y);
-  b2World *world = new b2World(gravity);
-  contactListener = new MyContactListener;
-  world->SetContactListener(contactListener);
+  b2World *box2dWorld = new b2World(gravity);
+  world_data *world = new world_data(box2dWorld);
   return world;
 }
 
 void destroyWorld(void *world_) {
-  b2World *world = (b2World *) world_;
+  world_data *world = (world_data *) world_;
   delete world;
-  delete contactListener;
 }
 
-void *createWall(void *world_, double posx, double posy, double dimx, double dimy) {
-  b2World *world = (b2World *) world_;
-  b2BodyDef groundBodyDef;
-  groundBodyDef.position.Set(posx, posy);
-  auto bodyData = new body_data;
-  bodyData->id = wglobal_id++;
-  groundBodyDef.userData = bodyData;
-  b2Body* groundBody = world->CreateBody(&groundBodyDef);
-  b2PolygonShape groundBox;
-  groundBox.SetAsBox(dimx, dimy);
-  groundBody->CreateFixture(&groundBox, 0.0f);
-  return groundBody;
-}
-
-void *createBox(void *world_, double posx, double posy, double dimx, double dimy,
-                double angle, double density, double friction) {
-  b2World *world = (b2World *) world_;
+void *createBody(void *world_, int type, double posx, double posy,
+                 double angle, int fixedRotation, int bullet) {
+  world_data *world = (world_data *) world_;
   b2BodyDef bodyDef;
-  bodyDef.type = b2_dynamicBody;
+
+  switch (type) {
+  case 0:
+    bodyDef.type = b2_staticBody;
+    break;
+  case 1:
+    bodyDef.type = b2_dynamicBody;
+    break;
+  case 2:
+    bodyDef.type = b2_kinematicBody;
+    break;
+  }
+
   bodyDef.position.Set(posx, posy);
   bodyDef.angle = angle;
+  bodyDef.fixedRotation = fixedRotation;
+  bodyDef.bullet = bullet;
+
   auto bodyData = new body_data;
-  bodyData->id = wglobal_id++;
+  bodyData->id = world->id_counter++;
   bodyDef.userData = bodyData;
-  bodyDef.bullet = true;
-  b2Body* body = world->CreateBody(&bodyDef);
-  b2PolygonShape dynamicBox;
-  dynamicBox.SetAsBox(dimx, dimy);
+
+  return world->world->CreateBody(&bodyDef);
+}
+
+void *createFixture(void *body_, void *shape, double density, double friction, double restitution) {
   b2FixtureDef fixtureDef;
-  fixtureDef.shape = &dynamicBox;
+  fixtureDef.shape = shape;
   fixtureDef.density = density;
   fixtureDef.friction = friction;
+  fixtureDef.restitution = restitution;
+  b2Body *body = (b2Body *) body_;
   body->CreateFixture(&fixtureDef);
-  return body;
+}
+
+void *createFixtureCircle(void *body, double r, double offx, double offy, double angle,
+                          double density, double friction, double restitution) {
+  b2CircleShape circleShape;
+  circleShape.m_p.Set(offx, offy);
+  circleShape.m_radius = r;
+  return createFixture(body, &circleShape, density, friction, restitution);
+}
+
+void *createFixtureBox(void *body, double w, double h, double offx, double offy,
+                       double angle, double density, double friction, double restitution) {
+  b2PolygonShape box;
+  box.SetAsBox(w, h, b2Vec2(offx, offy), angle);
+  return createFixture(body, &box, density, friction, restitution);
 }
 
 void destroy(void *world_, void *body_) {
-  b2World *world = (b2World *) world_;
+  world_data *world = (world_data *) world_;
   b2Body *body = (b2Body *) body_;
-  world->DestroyBody(body);
+  world->world->DestroyBody(body);
 }
 
 void step(void *world_, double timeStep, int velocityIterations, int positionIterations) {
-  b2World *world = (b2World *) world_;
-  world->Step(timeStep, velocityIterations, positionIterations);
+  world_data *world = (world_data *) world_;
+  world->world->Step(timeStep, velocityIterations, positionIterations);
 }
 
 void applyImpulse(void *body_, double x, double y) {
@@ -205,4 +187,97 @@ double getVely(void* body_) {
   return body->GetLinearVelocity().y;
 }
 
-// TODO destroying bodies
+void *topCollision(void *world_) {
+  world_data *world = (world_data *) world_;
+  if (!world->contactListener->collisions.empty())
+    return &world->contactListener->collisions.front();
+  else return nullptr;
+}
+
+void popCollision(void *world_) {
+  world_data *world = (world_data *) world_;
+  world->contactListener->collisions.pop();
+}
+
+void *getBodyOne(void *collision_) {
+  collision_data *collision = (collision_data *) collision_;
+  return collision->one.body;
+}
+
+void *getBodyTwo(void *collision_) {
+  collision_data *collision = (collision_data *) collision_;
+  return collision->two.body;
+}
+
+int getIdOne(void *collision_) {
+  collision_data *collision = (collision_data *) collision_;
+  return collision->one.id();
+}
+
+int getIdTwo(void *collision_) {
+  collision_data *collision = (collision_data *) collision_;
+  return collision->two.id();
+}
+
+double getColVelx(void *collision_, int selector) {
+  assert(selector == 1 || selector == 2);
+  collision_data *collision = (collision_data *) collision_;
+  return selector==1 ? collision->one.velx : collision->two.velx;
+}
+
+double getColVely(void *collision_, int selector) {
+  assert(selector == 1 || selector == 2);
+  collision_data *collision = (collision_data *) collision_;
+  return selector==1 ? collision->one.vely : collision->two.vely;
+}
+
+int getStart(void *collision_) {
+  collision_data *collision = (collision_data *) collision_;
+  return collision->start ? 1 : 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+// void *createWall(void *world_, double posx, double posy, double dimx, double dimy) {
+//   b2World *world = (b2World *) world_;
+//   b2BodyDef groundBodyDef;
+//   groundBodyDef.position.Set(posx, posy);
+//   auto bodyData = new body_data;
+//   bodyData->id = wglobal_id++;
+//   groundBodyDef.userData = bodyData;
+//   b2Body* groundBody = world->CreateBody(&groundBodyDef);
+//   b2PolygonShape groundBox;
+//   groundBox.SetAsBox(dimx, dimy);
+//   groundBody->CreateFixture(&groundBox, 0.0f);
+//   return groundBody;
+// }
+//
+// void *createBox(void *world_, double posx, double posy, double dimx, double dimy,
+//                 double angle, double density, double friction) {
+//   b2World *world = (b2World *) world_;
+//   b2BodyDef bodyDef;
+//   bodyDef.type = b2_dynamicBody;
+//   bodyDef.position.Set(posx, posy);
+//   bodyDef.angle = angle;
+//   bodyDef.bullet = true;
+//   auto bodyData = new body_data;
+//   bodyData->id = wglobal_id++;
+//   bodyDef.userData = bodyData;
+//   b2Body* body = world->CreateBody(&bodyDef);
+//   b2PolygonShape dynamicBox;
+//   dynamicBox.SetAsBox(dimx, dimy);
+//   b2FixtureDef fixtureDef;
+//   fixtureDef.shape = &dynamicBox;
+//   fixtureDef.density = density;
+//   fixtureDef.friction = friction;
+//   body->CreateFixture(&fixtureDef);
+//   return body;
+// }

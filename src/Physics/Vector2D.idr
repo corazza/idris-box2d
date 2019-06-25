@@ -1,4 +1,4 @@
-module Vector2D
+module Physics.Vector2D
 
 public export
 Vector2D : Type

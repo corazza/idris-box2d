@@ -108,6 +108,9 @@ getPosition (MkBody ptr) = with IO do
   x <- foreign FFI_C "getPosx" (Ptr -> IO Double) ptr
   y <- foreign FFI_C "getPosy" (Ptr -> IO Double) ptr
   pure (x, y)
+-- 
+-- export
+-- getAABB : Body -> IO Vector2D
 
 export
 getAngle : Body -> IO Double

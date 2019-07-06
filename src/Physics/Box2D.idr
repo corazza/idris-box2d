@@ -65,15 +65,14 @@ createFixture (MkBody ptr) (MkFixtureDefinition shape offset angle density frict
         angle' = fromMaybe 0 angle
         density' = fromMaybe Defaults.density density
         friction' = fromMaybe Defaults.friction friction
-        restitution' = fromMaybe Defaults.restitution restitution
-        in case shape of
-      Circle r => foreign FFI_C "createFixtureCircle"
-        (Ptr -> Double -> Double -> Double -> Double -> Double -> Double -> Double -> IO Ptr)
-        ptr r offx offy angle' density' friction' restitution' >>= pure . MkFixture
-      Box (x, y) => foreign FFI_C "createFixtureBox"
-        (Ptr -> Double -> Double -> Double -> Double -> Double -> Double -> Double -> Double -> IO Ptr)
-        ptr x y offx offy angle' density' friction' restitution' >>= pure . MkFixture
-      Polygon xs => ?createPolygonShapeFixture
+        restitution' = fromMaybe Defaults.restitution restitution in case shape of
+          Circle r => foreign FFI_C "createFixtureCircle"
+            (Ptr -> Double -> Double -> Double -> Double -> Double -> Double -> Double -> IO Ptr)
+            ptr r offx offy angle' density' friction' restitution' >>= pure . MkFixture
+          Box (x, y) => foreign FFI_C "createFixtureBox"
+            (Ptr -> Double -> Double -> Double -> Double -> Double -> Double -> Double -> Double -> IO Ptr)
+            ptr x y offx offy angle' density' friction' restitution' >>= pure . MkFixture
+          Polygon xs => ?createPolygonShapeFixture
 
 export
 createFixture' : Body -> Shape -> (density' : Double) -> IO Fixture
@@ -99,6 +98,12 @@ applyImpulse (MkBody ptr) (x, y)
   = foreign FFI_C "applyImpulse" (Ptr -> Double -> Double -> IO ()) ptr x y
 
 export
+applyForce : Body -> (force : Vector2D) -> (offset : Vector2D) -> IO ()
+applyForce (MkBody ptr) (x, y) (offx, offy)
+  = foreign FFI_C "applyForce" (Ptr -> Double -> Double -> Double -> Double -> IO ())
+            ptr x y offx offy
+
+export
 getMass : Body -> IO Double
 getMass (MkBody ptr) = foreign FFI_C "getMass" (Ptr -> IO Double) ptr
 
@@ -108,9 +113,13 @@ getPosition (MkBody ptr) = with IO do
   x <- foreign FFI_C "getPosx" (Ptr -> IO Double) ptr
   y <- foreign FFI_C "getPosy" (Ptr -> IO Double) ptr
   pure (x, y)
--- 
--- export
--- getAABB : Body -> IO Vector2D
+
+export
+getWorldCenter : Body -> IO Vector2D
+getWorldCenter (MkBody ptr) = with IO do
+  x <- foreign FFI_C "getWCx" (Ptr -> IO Double) ptr
+  y <- foreign FFI_C "getWCy" (Ptr -> IO Double) ptr
+  pure (x, y)
 
 export
 getAngle : Body -> IO Double

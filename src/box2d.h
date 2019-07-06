@@ -46,12 +46,15 @@ int getStart(void *collision);
 
 void step(void *world, double timeStep, int velocityIterations, int positionIterations);
 
-void applyImpulse(void *body_, double x, double y);
+void applyImpulse(void *body, double x, double y);
+void applyForce(void *body, double x, double y, double offx, double offy);
 
 int getId(void *body);
 double getMass(void *body);
 double getPosx(void *body);
 double getPosy(void *body);
+double getWCx(void *body);
+double getWCy(void *body);
 double getAngle(void *body);
 double getVelx(void *body);
 double getVely(void *body);

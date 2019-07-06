@@ -24,10 +24,6 @@ record BodyDefinition where
   bullet : Maybe Bool
 %name BodyDefinition bodyDef
 
-makeBodyDefinition : (type : BodyType) -> (position : Vector2D) -> Double -> BodyDefinition
-makeBodyDefinition type position angle = let isBullet = type /= Static in
-  MkBodyDefinition type position (Just angle) Nothing (Just isBullet)
-
 data Shape = Circle Double
            | Box Vector2D
            | Polygon (List Vector2D)

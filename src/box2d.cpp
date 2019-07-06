@@ -151,6 +151,13 @@ void applyImpulse(void *body_, double x, double y) {
   body->ApplyLinearImpulse(impulse, body->GetWorldCenter(), true);
 }
 
+void applyForce(void *body_, double x, double y, double offx, double offy) {
+  b2Body *body = (b2Body *) body_;
+  b2Vec2 force(x, y);
+  b2Vec2 offset(offx, offy);
+  body->ApplyForce(force, body->GetWorldPoint(offset), true);
+}
+
 int getId(void *body_) {
   b2Body *body = (b2Body *) body_;
   body_data *bodyData = (body_data*) body->GetUserData();
@@ -170,6 +177,16 @@ double getPosx(void* body_) {
 double getPosy(void* body_) {
   b2Body *body = (b2Body *) body_;
   return body->GetPosition().y;
+}
+
+double getWCx(void* body_) {
+  b2Body *body = (b2Body *) body_;
+  return body->GetWorldCenter().x;
+}
+
+double getWCy(void* body_) {
+  b2Body *body = (b2Body *) body_;
+  return body->GetWorldCenter().y;
 }
 
 double getAngle(void* body_) {

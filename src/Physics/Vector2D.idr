@@ -16,6 +16,10 @@ Neg Vector2D where
   (x2, y2) - (x1, y1) = (x2-x1, y2-y1)
 
 export
+norm : Vector2D -> Double
+norm (x, y) = sqrt $ x*x + y*y
+
+export
 scale : Double -> Vector2D -> Vector2D
 scale a (x, y) = (a*x, a*y)
 

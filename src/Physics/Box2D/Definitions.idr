@@ -49,6 +49,16 @@ record FixtureDefinition where
   restitution : Maybe Double
 %name FixtureDefinition fixtureDef
 
+Show FixtureDefinition where
+  show (MkFixtureDefinition shape offset angle density friction restitution)
+    =  "{ shape: " ++ show shape
+    ++ ", offset: " ++ show offset
+    ++ ", angle: " ++ show angle
+    ++ ", density: " ++ show density
+    ++ ", friction: " ++ show friction
+    ++ ", restitution: " ++ show restitution
+    ++ " }"
+
 defaultFixture : Shape -> FixtureDefinition
 defaultFixture shape
   = MkFixtureDefinition shape Nothing Nothing Nothing Nothing Nothing

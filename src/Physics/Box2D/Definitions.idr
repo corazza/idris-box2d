@@ -24,10 +24,20 @@ record BodyDefinition where
   bullet : Maybe Bool
 %name BodyDefinition bodyDef
 
+Show BodyType where
+  show Static = "static"
+  show Dynamic = "dynamics"
+  show Kinematic = "kinematic"
+
 data Shape = Circle Double
            | Box Vector2D
            | Polygon (List Vector2D)
 %name Shape shape
+
+Show Shape where
+  show (Circle x) = "circle " ++ show x
+  show (Box x) = "box " ++ show x
+  show (Polygon xs) = "polygon " ++ show xs
 
 record FixtureDefinition where
   constructor MkFixtureDefinition

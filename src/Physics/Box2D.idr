@@ -3,7 +3,7 @@ module Physics.Box2D
 import Data.Vect
 import Control.ST
 
-import Physics.Vector2D
+import public Physics.Vector2D
 import public Physics.Box2D.Definitions
 import Physics.Box2D.Defaults
 

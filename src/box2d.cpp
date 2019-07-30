@@ -2,6 +2,7 @@
 
 #include <Box2D/Box2D.h>
 #include <queue>
+#include <set>
 #include <iostream>
 
 // held in body.user_data
@@ -51,11 +52,40 @@ struct MyContactListener : public b2ContactListener {
   }
 };
 
+struct query_result {
+  int query_id;
+  b2Body *body;
+
+  query_result(int query_id, b2Body *body) :
+    query_id(query_id), body(body) {}
+};
+
+class QueryCallback : public b2QueryCallback {
+public:
+  int query_id;
+  std::vector<b2Body *> found;
+  std::set<b2Body *> already_found;
+
+  QueryCallback(int query_id) : query_id(query_id) {}
+
+  bool ReportFixture(b2Fixture* fixture) {
+    auto body = fixture->GetBody();
+    if (already_found.find(body) == already_found.end()) {
+      already_found.insert(body);
+      found.push_back(body);
+    }
+    return true; //keep going to find all fixtures in the query area
+  }
+};
+
 // wraps a world pointer and user data
 struct world_data {
   b2World *world;
   int id_counter;
   MyContactListener *contactListener;
+  // std::vector<QueryCallback*> queries;
+  std::set<b2Body *> query_results_set;
+  std::queue<query_result> query_results;
 
   world_data(b2World *world)
     : world(world), id_counter(0), contactListener(new MyContactListener) {
@@ -78,6 +108,18 @@ void *createWorld(double x, double y) {
 void destroyWorld(void *world_) {
   world_data *world = (world_data *) world_;
   delete world;
+}
+
+void queryAABB(void *world_, int query_id, double lx, double ly, double ux, double uy) {
+  world_data *world = (world_data *) world_;
+  QueryCallback queryCallback = QueryCallback(query_id);
+  b2AABB aabb;
+  aabb.lowerBound = b2Vec2(lx, ly);
+  aabb.upperBound = b2Vec2(ux, uy);
+  world->world->QueryAABB(&queryCallback, aabb);
+  for (int j = 0; j < queryCallback.found.size(); ++j) {
+    world->query_results.push(query_result(query_id, queryCallback.found[j]));
+  }
 }
 
 void *createBody(void *world_, int type, double posx, double posy,
@@ -109,29 +151,48 @@ void *createBody(void *world_, int type, double posx, double posy,
   return world->world->CreateBody(&bodyDef);
 }
 
-void *createFixture(void *body_, void *shape, double density, double friction, double restitution) {
+void *createFixture(void *body_, void *shape, double density, double friction, double restitution,
+                    int groupIndex, int categoryBits, int maskBits) {
   b2FixtureDef fixtureDef;
   fixtureDef.shape = shape;
   fixtureDef.density = density;
   fixtureDef.friction = friction;
   fixtureDef.restitution = restitution;
+  fixtureDef.filter.groupIndex = groupIndex;
+  fixtureDef.filter.categoryBits = categoryBits;
+  fixtureDef.filter.maskBits = maskBits;
   b2Body *body = (b2Body *) body_;
   body->CreateFixture(&fixtureDef);
 }
 
+void *createRevoluteJoint(void *world_, void *bodyA, void *bodyB, int collideConnected,
+                          double localAnchorAx, double localAnchorAy,
+                          double localAnchorBx, double localAnchorBy) {
+  world_data *world = (world_data *) world_;
+  b2RevoluteJointDef revoluteJointDef;
+  revoluteJointDef.bodyA = bodyA;
+  revoluteJointDef.bodyB = bodyB;
+  revoluteJointDef.collideConnected = collideConnected;
+  revoluteJointDef.localAnchorA.Set(localAnchorAx, localAnchorAy);
+  revoluteJointDef.localAnchorB.Set(localAnchorBx, localAnchorBy);
+  return world->world->CreateJoint(&revoluteJointDef);
+}
+
 void *createFixtureCircle(void *body, double r, double offx, double offy, double angle,
-                          double density, double friction, double restitution) {
+                          double density, double friction, double restitution,
+                          int groupIndex, int categoryBits, int maskBits) {
   b2CircleShape circleShape;
   circleShape.m_p.Set(offx, offy);
   circleShape.m_radius = r;
-  return createFixture(body, &circleShape, density, friction, restitution);
+  return createFixture(body, &circleShape, density, friction, restitution, groupIndex, categoryBits, maskBits);
 }
 
 void *createFixtureBox(void *body, double w, double h, double offx, double offy,
-                       double angle, double density, double friction, double restitution) {
+                       double angle, double density, double friction, double restitution,
+                       int groupIndex, int categoryBits, int maskBits) {
   b2PolygonShape box;
   box.SetAsBox(w, h, b2Vec2(offx, offy), angle);
-  return createFixture(body, &box, density, friction, restitution);
+  return createFixture(body, &box, density, friction, restitution, groupIndex, categoryBits, maskBits);
 }
 
 void destroy(void *world_, void *body_) {
@@ -204,6 +265,35 @@ double getVely(void* body_) {
   return body->GetLinearVelocity().y;
 }
 
+void *topQueryResult(void *world_) {
+  world_data *world = (world_data *) world_;
+  if (!world->query_results.empty())
+    return &world->query_results.front();
+  else return nullptr;
+}
+
+void popQuery(void *world_) {
+  world_data *world = (world_data *) world_;
+  world->query_results.pop();
+}
+
+int getQueryId(void *result_) {
+  query_result *result = (query_result *) result_;
+  return result->query_id;
+}
+
+int getQueryBodyId(void *result_) {
+  query_result *result = (query_result *) result_;
+  body_data* data = (body_data *) result->body->GetUserData();
+  return data->id;
+}
+
+void *getQueryBody(void *result_) {
+  query_result *result = (query_result *) result_;
+  return result->body;
+}
+
+
 void *topCollision(void *world_) {
   world_data *world = (world_data *) world_;
   if (!world->contactListener->collisions.empty())
@@ -252,49 +342,3 @@ int getStart(void *collision_) {
   collision_data *collision = (collision_data *) collision_;
   return collision->start ? 1 : 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-// void *createWall(void *world_, double posx, double posy, double dimx, double dimy) {
-//   b2World *world = (b2World *) world_;
-//   b2BodyDef groundBodyDef;
-//   groundBodyDef.position.Set(posx, posy);
-//   auto bodyData = new body_data;
-//   bodyData->id = wglobal_id++;
-//   groundBodyDef.userData = bodyData;
-//   b2Body* groundBody = world->CreateBody(&groundBodyDef);
-//   b2PolygonShape groundBox;
-//   groundBox.SetAsBox(dimx, dimy);
-//   groundBody->CreateFixture(&groundBox, 0.0f);
-//   return groundBody;
-// }
-//
-// void *createBox(void *world_, double posx, double posy, double dimx, double dimy,
-//                 double angle, double density, double friction) {
-//   b2World *world = (b2World *) world_;
-//   b2BodyDef bodyDef;
-//   bodyDef.type = b2_dynamicBody;
-//   bodyDef.position.Set(posx, posy);
-//   bodyDef.angle = angle;
-//   bodyDef.bullet = true;
-//   auto bodyData = new body_data;
-//   bodyData->id = wglobal_id++;
-//   bodyDef.userData = bodyData;
-//   b2Body* body = world->CreateBody(&bodyDef);
-//   b2PolygonShape dynamicBox;
-//   dynamicBox.SetAsBox(dimx, dimy);
-//   b2FixtureDef fixtureDef;
-//   fixtureDef.shape = &dynamicBox;
-//   fixtureDef.density = density;
-//   fixtureDef.friction = friction;
-//   body->CreateFixture(&fixtureDef);
-//   return body;
-// }

@@ -20,20 +20,29 @@ void *createWorld(double x, double y);
 void destroyWorld(void *world);
 
 void *createBody(void *world, int type, double posx, double posy, double angle, int fixedRotation, int bullet);
-void *createFixture(void *body, void *shape, double density, double friction, double restitution);
+void *createFixture(void *body, void *shape, double density, double friction, double restitution,
+                    int groupIndex, int categoryBits, int maskBits);
 void *createFixtureCircle(void *body, double r, double offx, double offy, double angle,
-                          double density, double friction, double restitution);
+                          double density, double friction, double restitution,
+                          int groupIndex, int categoryBits, int maskBits);
 void *createFixtureBox(void *body, double w, double h, double offx, double offy, double angle,
-                          double density, double friction, double restitution);
-
-void *createWall(void *world, double posx, double posy, double dimx, double dimy);
-
-void *createBox(void *world, double posx, double posy, double dimx, double dimy,
-                double angle, double density, double friction);
-
+                       double density, double friction, double restitution,
+                       int groupIndex, int categoryBits, int maskBits);
+void *createRevoluteJoint(void *world_, void *bodyA, void *bodyB, int collideConnected,
+                          double localAnchorAx, double localAnchorAy,
+                          double localAnchorBx, double localAnchorBy);
 void destroy(void *world, void *body);
 
+
 // disgusting concepts
+void queryAABB(void *world_, int query_id, double lx, double ly, double ux, double uy);
+void *topQueryResult(void *world_);
+void popQuery(void *world_);
+int getQueryId(void *result_);
+int getQueryBodyId(void *result_);
+void *getQueryBody(void *result_);
+
+// collisions
 void *topCollision(void *world);
 void popCollision(void *world);
 void *getBodyOne(void *collision);

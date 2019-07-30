@@ -12,13 +12,7 @@ import Physics.Box2D.Defaults
 %flag C "-lBox2D -lstdc++"
 
 export
-data Body = MkBody Ptr
-
-export
 data World = MkWorld Ptr
-
-export
-data Fixture = MkFixture Ptr
 
 public export
 record CollisionForBody where
@@ -28,8 +22,18 @@ record CollisionForBody where
   velocity : Vector2D
 
 public export
+data AABB = MkAABB Vector2D Vector2D -- lower, upper
+
+public export
+data AABBQuery = MkAABBQuery Int AABB -- query_id,
+
+-- public export
+-- data QueryResult = MkQueryResult Int Body
+
+public export
 data Event = CollisionStart CollisionForBody CollisionForBody
            | CollisionStop CollisionForBody CollisionForBody
+           | QueryResult Int Int Body
 
 export
 createWorld : Vector2D -> IO Box2D.World
@@ -60,18 +64,25 @@ createBody (MkWorld ptr) (MkBodyDefinition type (x, y) angle fixedRotation bulle
 
 export
 createFixture : Body -> FixtureDefinition -> IO Fixture
-createFixture (MkBody ptr) (MkFixtureDefinition shape offset angle density friction restitution)
-  = let (offx, offy) = fromMaybe nullVector offset
-        angle' = fromMaybe 0 angle
-        density' = fromMaybe Defaults.density density
-        friction' = fromMaybe Defaults.friction friction
-        restitution' = fromMaybe Defaults.restitution restitution in case shape of
+createFixture (MkBody ptr) fd
+  = let (offx, offy) = fromMaybe nullVector (offset fd)
+        angle' = fromMaybe 0 (angle fd)
+        groupIndex' = fromMaybe 0 (groupIndex fd)
+        categoryBits' = fromMaybe 0x0001 (categoryBits fd)
+        maskBits' = fromMaybe 0xFFFF (maskBits fd)
+        density' = fromMaybe Defaults.density (density fd)
+        friction' = fromMaybe Defaults.friction (friction fd)
+        restitution' = fromMaybe Defaults.restitution (restitution fd) in case shape fd of
           Circle r => foreign FFI_C "createFixtureCircle"
-            (Ptr -> Double -> Double -> Double -> Double -> Double -> Double -> Double -> IO Ptr)
-            ptr r offx offy angle' density' friction' restitution' >>= pure . MkFixture
+            (Ptr -> Double -> Double -> Double -> Double -> Double -> Double -> Double ->
+             Int -> Int -> Int -> IO Ptr)
+            ptr r offx offy angle' density' friction' restitution'
+            groupIndex' categoryBits' maskBits' >>= pure . MkFixture
           Box (x, y) => foreign FFI_C "createFixtureBox"
-            (Ptr -> Double -> Double -> Double -> Double -> Double -> Double -> Double -> Double -> IO Ptr)
-            ptr x y offx offy angle' density' friction' restitution' >>= pure . MkFixture
+            (Ptr -> Double -> Double -> Double -> Double -> Double -> Double -> Double -> Double ->
+             Int -> Int -> Int -> IO Ptr)
+            ptr x y offx offy angle' density' friction' restitution'
+            groupIndex' categoryBits' maskBits' >>= pure . MkFixture
           Polygon xs => ?createPolygonShapeFixture
 
 export
@@ -79,6 +90,26 @@ createFixture' : Body -> Shape -> (density' : Double) -> IO Fixture
 createFixture' body shape density'
   = let fixture = record {density = Just density'} (defaultFixture shape) in
         createFixture body fixture
+
+defaultCollide : Maybe Bool -> Int
+defaultCollide Nothing = 0
+defaultCollide (Just False) = 0
+defaultCollide (Just True) = 1
+
+export
+createRevoluteJoint : Box2D.World -> RevoluteJointDefinition -> IO Joint
+createRevoluteJoint (MkWorld world_ptr) def
+  = let collideConnected = defaultCollide (collideConnected def)
+        MkBody bodyA_ptr = bodyA def
+        MkBody bodyB_ptr = bodyB def
+        (localAnchorAx, localAnchorAy) = localAnchorA def
+        (localAnchorBx, localAnchorBy) = localAnchorB def
+        in with IO do
+          joint_ptr <- foreign FFI_C "createRevoluteJoint"
+                (Ptr -> Ptr -> Ptr -> Int -> Double -> Double -> Double -> Double -> IO Ptr)
+                world_ptr bodyA_ptr bodyB_ptr collideConnected
+                localAnchorAx localAnchorAy localAnchorBx localAnchorBy
+          pure $ MkJoint joint_ptr
 
 export
 destroy : Box2D.World -> Body -> IO ()
@@ -91,6 +122,12 @@ step : Box2D.World ->
        (positionIterations : Int) ->
        IO ()
 step (MkWorld ptr) = foreign FFI_C "step" (Ptr -> Double -> Int -> Int -> IO ()) ptr
+
+export
+queryAABB : Box2D.World -> AABBQuery -> IO ()
+queryAABB (MkWorld ptr) (MkAABBQuery id (MkAABB (lx, ly) (ux, uy)))
+  = foreign FFI_C "queryAABB" (Ptr -> Int -> Double -> Double -> Double -> Double -> IO ())
+              ptr id lx ly ux uy
 
 export
 applyImpulse : Body -> Vector2D -> IO ()
@@ -133,8 +170,8 @@ getVelocity (MkBody ptr) = do
   pure (x, y)
 
 export
-pollEvent : Box2D.World -> IO (Maybe Event)
-pollEvent (MkWorld w_ptr) = with IO do
+pollCollision : Box2D.World -> IO (Maybe Event)
+pollCollision (MkWorld w_ptr) = with IO do
   ptr <- foreign FFI_C "topCollision" (Ptr -> IO Ptr) w_ptr
   if ptr == null then pure Nothing else with IO do
     ptr_body_one <- foreign FFI_C "getBodyOne" (Ptr -> IO Ptr) ptr
@@ -156,7 +193,28 @@ pollEvent (MkWorld w_ptr) = with IO do
 
 -- pollEvents : (box : Var) -> ST m (List Event) [box ::: SBox2D]
 export
+pollCollisions : Box2D.World -> IO (List Event)
+pollCollisions world = with IO do
+  Just event <- pollCollision world | pure []
+  pure $ event :: !(pollCollisions world)
+
+-- export
+pollQuery : Box2D.World -> IO (Maybe Event)
+pollQuery (MkWorld w_ptr) = with IO do
+  ptr <- foreign FFI_C "topQueryResult" (Ptr -> IO Ptr) w_ptr
+  if ptr == null then pure Nothing else with IO do
+    query_id <- foreign FFI_C "getQueryId" (Ptr -> IO Int) ptr
+    body_id <- foreign FFI_C "getQueryBodyId" (Ptr -> IO Int) ptr
+    body <- foreign FFI_C "getQueryBody" (Ptr -> IO Ptr) ptr
+    foreign FFI_C "popQuery" (Ptr -> IO ()) w_ptr
+    pure $ Just $ QueryResult query_id body_id (MkBody body)
+
+-- export
+pollQueries : Box2D.World -> IO (List Event)
+pollQueries world = with IO do
+  Just result <- pollQuery world | pure []
+  pure $ result :: !(pollQueries world)
+
+export
 pollEvents : Box2D.World -> IO (List Event)
-pollEvents world = with IO do
-  Just event <- pollEvent world | pure []
-  pure $ event :: !(pollEvents world)
+pollEvents world = pure $ !(pollCollisions world) ++ !(pollQueries world)

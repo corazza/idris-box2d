@@ -62,6 +62,7 @@ record FixtureDefinition where
   groupIndex : Maybe Int
   categoryBits : Maybe Int
   maskBits : Maybe Int
+  name : Maybe String
 %name FixtureDefinition fixtureDef
 
 export
@@ -76,12 +77,14 @@ Show FixtureDefinition where
     ++ ", group index: " ++ show (groupIndex fd)
     ++ ", category bits: " ++ show (categoryBits fd)
     ++ ", mask bits: " ++ show (maskBits fd)
+    ++ ", name: " ++ show (name fd)
     ++ " }"
 
 export
 defaultFixture : Shape -> FixtureDefinition
 defaultFixture shape
-  = MkFixtureDefinition shape Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+  = MkFixtureDefinition shape Nothing Nothing Nothing Nothing Nothing Nothing
+                        Nothing Nothing Nothing
 
 public export
 record RevoluteJointDefinition where

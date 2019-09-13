@@ -20,19 +20,21 @@ void *createWorld(double x, double y);
 void destroyWorld(void *world);
 
 void *createBody(void *world, int type, double posx, double posy, double angle, int fixedRotation, int bullet);
-void *createFixture(void *body, void *shape, double density, double friction, double restitution,
-                    int groupIndex, int categoryBits, int maskBits);
-void *createFixtureCircle(void *body, double r, double offx, double offy, double angle,
+void *createFixture(void *world_, void *body, void *shape, double density, double friction, double restitution,
+                    int groupIndex, int categoryBits, int maskBits, const char *name);
+void *createFixtureCircle(void *world_, void *body, double r, double offx, double offy, double angle,
                           double density, double friction, double restitution,
-                          int groupIndex, int categoryBits, int maskBits);
-void *createFixtureBox(void *body, double w, double h, double offx, double offy, double angle,
+                          int groupIndex, int categoryBits, int maskBits, const char *name);
+void *createFixtureBox(void *world_, void *body, double w, double h, double offx, double offy, double angle,
                        double density, double friction, double restitution,
-                       int groupIndex, int categoryBits, int maskBits);
+                       int groupIndex, int categoryBits, int maskBits, const char *name);
 void *createRevoluteJoint(void *world_, void *bodyA, void *bodyB, int collideConnected,
                           double localAnchorAx, double localAnchorAy,
                           double localAnchorBx, double localAnchorBy);
 void destroy(void *world, void *body);
-
+void setFilter(void *body_, const char *fixtureName, int all, int filterData, int which);
+void setFilterBit(void *body_, const char *fixtureName, int all, int filterData, int which);
+void unsetFilterBit(void *body_, const char *fixtureName, int all, int filterData, int which);
 
 // disgusting concepts
 void queryAABB(void *world_, int query_id, double lx, double ly, double ux, double uy);
@@ -51,6 +53,7 @@ int getIdOne(void *collision);
 int getIdTwo(void *collision);
 double getColVelx(void *collision_, int selector);
 double getColVely(void *collision_, int selector);
+const char* getColFixtureName(void *collision_, int selector);
 int getStart(void *collision);
 
 void step(void *world, double timeStep, int velocityIterations, int positionIterations);

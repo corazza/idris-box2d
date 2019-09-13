@@ -20,6 +20,7 @@ record CollisionForBody where
   id : Int
   body : Body
   velocity : Vector2D
+  fixtureName : String
 
 public export
 data AABB = MkAABB Vector2D Vector2D -- lower, upper
@@ -63,8 +64,8 @@ createBody (MkWorld ptr) (MkBodyDefinition type (x, y) angle fixedRotation bulle
       pure (id, MkBody body)
 
 export
-createFixture : Body -> FixtureDefinition -> IO Fixture
-createFixture (MkBody ptr) fd
+createFixture : Box2D.World -> Body -> FixtureDefinition -> IO Fixture
+createFixture (MkWorld world_ptr) (MkBody body_ptr) fd
   = let (offx, offy) = fromMaybe nullVector (offset fd)
         angle' = fromMaybe 0 (angle fd)
         groupIndex' = fromMaybe 0 (groupIndex fd)
@@ -72,24 +73,26 @@ createFixture (MkBody ptr) fd
         maskBits' = fromMaybe 0xFFFF (maskBits fd)
         density' = fromMaybe Defaults.density (density fd)
         friction' = fromMaybe Defaults.friction (friction fd)
-        restitution' = fromMaybe Defaults.restitution (restitution fd) in case shape fd of
+        restitution' = fromMaybe Defaults.restitution (restitution fd)
+        name' = fromMaybe "" (name fd)
+        in case shape fd of
           Circle r => foreign FFI_C "createFixtureCircle"
-            (Ptr -> Double -> Double -> Double -> Double -> Double -> Double -> Double ->
-             Int -> Int -> Int -> IO Ptr)
-            ptr r offx offy angle' density' friction' restitution'
-            groupIndex' categoryBits' maskBits' >>= pure . MkFixture
+            (Ptr -> Ptr -> Double -> Double -> Double -> Double -> Double -> Double -> Double ->
+             Int -> Int -> Int -> String -> IO Ptr)
+            world_ptr body_ptr r offx offy angle' density' friction' restitution'
+            groupIndex' categoryBits' maskBits' name' >>= pure . MkFixture
           Box (x, y) => foreign FFI_C "createFixtureBox"
-            (Ptr -> Double -> Double -> Double -> Double -> Double -> Double -> Double -> Double ->
-             Int -> Int -> Int -> IO Ptr)
-            ptr x y offx offy angle' density' friction' restitution'
-            groupIndex' categoryBits' maskBits' >>= pure . MkFixture
+            (Ptr -> Ptr -> Double -> Double -> Double -> Double -> Double -> Double -> Double -> Double ->
+             Int -> Int -> Int -> String -> IO Ptr)
+            world_ptr body_ptr x y offx offy angle' density' friction' restitution'
+            groupIndex' categoryBits' maskBits' name' >>= pure . MkFixture
           Polygon xs => ?createPolygonShapeFixture
 
 export
-createFixture' : Body -> Shape -> (density' : Double) -> IO Fixture
-createFixture' body shape density'
+createFixture' : Box2D.World -> Body -> Shape -> (density' : Double) -> IO Fixture
+createFixture' world body shape density'
   = let fixture = record {density = Just density'} (defaultFixture shape) in
-        createFixture body fixture
+        createFixture world body fixture
 
 defaultCollide : Maybe Bool -> Int
 defaultCollide Nothing = 0
@@ -114,6 +117,36 @@ createRevoluteJoint (MkWorld world_ptr) def
 export
 destroy : Box2D.World -> Body -> IO ()
 destroy (MkWorld ptr_w) (MkBody ptr_b) = foreign FFI_C "destroy" (Ptr -> Ptr -> IO ()) ptr_w ptr_b
+
+setFilter' : Ptr -> String -> Int -> Int -> Int -> IO ()
+setFilter' = foreign FFI_C "setFilter" (Ptr -> String -> Int -> Int -> Int -> IO ())
+
+export
+setFilter : Body -> Maybe String -> Int -> Int -> IO ()
+setFilter (MkBody ptr) Nothing filterData which
+  = setFilter' ptr "" 1 filterData which
+setFilter (MkBody ptr) (Just fixtureName) filterData which
+  = setFilter' ptr fixtureName 0 filterData which
+
+setFilterBit' : Ptr -> String -> Int -> Int -> Int -> IO ()
+setFilterBit' = foreign FFI_C "setFilterBit" (Ptr -> String -> Int -> Int -> Int -> IO ())
+
+export
+setFilterBit : Body -> Maybe String -> Int -> Int -> IO ()
+setFilterBit (MkBody ptr) Nothing filterData which
+  = setFilterBit' ptr "" 1 filterData which
+setFilterBit (MkBody ptr) (Just fixtureName) filterData which
+  = setFilterBit' ptr fixtureName 0 filterData which
+
+unsetFilterBit' : Ptr -> String -> Int -> Int -> Int -> IO ()
+unsetFilterBit' = foreign FFI_C "unsetFilterBit" (Ptr -> String -> Int -> Int -> Int -> IO ())
+
+export
+unsetFilterBit : Body -> Maybe String -> Int -> Int -> IO ()
+unsetFilterBit (MkBody ptr) Nothing filterData which
+  = unsetFilterBit' ptr "" 1 filterData which
+unsetFilterBit (MkBody ptr) (Just fixtureName) filterData which
+  = unsetFilterBit' ptr fixtureName 0 filterData which
 
 export
 step : Box2D.World ->
@@ -183,9 +216,13 @@ pollCollision (MkWorld w_ptr) = with IO do
     velx_two <- foreign FFI_C "getColVelx" (Ptr -> Int -> IO Double) ptr 2
     vely_one <- foreign FFI_C "getColVely" (Ptr -> Int -> IO Double) ptr 1
     vely_two <- foreign FFI_C "getColVely" (Ptr -> Int -> IO Double) ptr 2
+    name_one <- foreign FFI_C "getColFixtureName" (Ptr -> Int -> IO String) ptr 1
+    name_two <- foreign FFI_C "getColFixtureName" (Ptr -> Int -> IO String) ptr 2
     foreign FFI_C "popCollision" (Ptr -> IO ()) w_ptr
-    let for_one = MkCollisionForBody id_one (MkBody ptr_body_one) (velx_one, vely_one)
-    let for_two = MkCollisionForBody id_two (MkBody ptr_body_two) (velx_two, vely_two)
+    let for_one = MkCollisionForBody
+      id_one (MkBody ptr_body_one) (velx_one, vely_one) name_one
+    let for_two = MkCollisionForBody
+      id_two (MkBody ptr_body_two) (velx_two, vely_two) name_two
     let event = if start == 1
       then CollisionStart for_one for_two
       else CollisionStop for_one for_two

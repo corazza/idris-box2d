@@ -16,9 +16,11 @@ struct collision_data {
   // collision data for a single body
   struct for_body {
     b2Body *body;
+    b2Fixture *fixture;
     double velx, vely; // velocity on collision
 
-    for_body(b2Body *body) : body(body) {
+    for_body(b2Fixture *fixture) : fixture(fixture) {
+      body = fixture->GetBody();
       velx = body->GetLinearVelocity().x;
       vely = body->GetLinearVelocity().y;
     }
@@ -29,7 +31,7 @@ struct collision_data {
     }
   } one, two;
 
-  collision_data(bool start, b2Body *one, b2Body *two) :
+  collision_data(bool start, b2Fixture *one, b2Fixture *two) :
     start(start), one(one), two(two) {}
 };
 
@@ -37,9 +39,8 @@ struct MyContactListener : public b2ContactListener {
   std::queue<collision_data> collisions;
 
   void process(b2Contact *contact, bool start) {
-    b2Body *one = contact->GetFixtureA()->GetBody();
-    b2Body *two = contact->GetFixtureB()->GetBody();
-
+    b2Fixture *one = contact->GetFixtureA();
+    b2Fixture *two = contact->GetFixtureB();
     collisions.push(collision_data(start, one, two));
   }
 
@@ -78,6 +79,12 @@ public:
   }
 };
 
+struct fixture_data {
+  std::string name;
+
+  fixture_data(const char* name) : name(name) {}
+};
+
 // wraps a world pointer and user data
 struct world_data {
   b2World *world;
@@ -86,6 +93,7 @@ struct world_data {
   // std::vector<QueryCallback*> queries;
   std::set<b2Body *> query_results_set;
   std::queue<query_result> query_results;
+  std::vector<fixture_data*> fixtures_data;
 
   world_data(b2World *world)
     : world(world), id_counter(0), contactListener(new MyContactListener) {
@@ -95,6 +103,23 @@ struct world_data {
   ~world_data() {
     delete world;
     delete contactListener;
+  }
+
+  // returns pointer used for setting the user data of a fixture
+  void *addFixtureName(const char *name) {
+    fixture_data *data = new fixture_data(name);
+    fixtures_data.push_back(data);
+    return data;
+  }
+
+  void clearFixtureData(b2Fixture* f) {
+    std::vector<fixture_data*>::iterator it;
+    it = find(fixtures_data.begin(), fixtures_data.end(), f->GetUserData());
+    if (it != fixtures_data.end()) {
+      fixture_data *ptr = *it;
+      delete ptr;
+      fixtures_data.erase(it);
+    }
   }
 };
 
@@ -151,8 +176,12 @@ void *createBody(void *world_, int type, double posx, double posy,
   return world->world->CreateBody(&bodyDef);
 }
 
-void *createFixture(void *body_, void *shape, double density, double friction, double restitution,
-                    int groupIndex, int categoryBits, int maskBits) {
+void *createFixture(void *world_, void *body_, void *shape, double density, double friction,
+                    double restitution, int groupIndex, int categoryBits,
+                    int maskBits, const char *name) {
+  world_data *world = (world_data *) world_;
+  void* fixture_name_ptr = world->addFixtureName(name);
+
   b2FixtureDef fixtureDef;
   fixtureDef.shape = shape;
   fixtureDef.density = density;
@@ -161,8 +190,74 @@ void *createFixture(void *body_, void *shape, double density, double friction, d
   fixtureDef.filter.groupIndex = groupIndex;
   fixtureDef.filter.categoryBits = categoryBits;
   fixtureDef.filter.maskBits = maskBits;
+  fixtureDef.userData = fixture_name_ptr;
   b2Body *body = (b2Body *) body_;
   body->CreateFixture(&fixtureDef);
+}
+
+// 0 - groupIndex, 1 - categoryBits, 2 - maskBits
+void setFilter(void *body_, const char *fixtureName, int all, int filterData, int which) {
+  b2Body *body = (b2Body *) body_;
+  for (b2Fixture* f = body->GetFixtureList(); f; f = f->GetNext()) {
+    fixture_data *data = f->GetUserData();
+    if (all || data->name == fixtureName) {
+      b2Filter filter = f->GetFilterData();
+      switch(which) {
+        case 0:
+        filter.groupIndex = filterData;
+        break;
+
+        case 1:
+        filter.categoryBits = filterData;
+        break;
+
+        case 2:
+        filter.maskBits = filterData;
+        break;
+      }
+      f->SetFilterData(filter);
+    }
+  }
+}
+
+void setFilterBit(void *body_, const char *fixtureName, int all, int filterData, int which) {
+  b2Body *body = (b2Body *) body_;
+  for (b2Fixture* f = body->GetFixtureList(); f; f = f->GetNext()) {
+    fixture_data *data = f->GetUserData();
+    if (all || data->name == fixtureName) {
+      b2Filter filter = f->GetFilterData();
+      switch(which) {
+        case 1:
+        filter.categoryBits |= filterData;
+        break;
+
+        case 2:
+        filter.maskBits |= filterData;
+        break;
+      }
+      f->SetFilterData(filter);
+    }
+  }
+}
+
+void unsetFilterBit(void *body_, const char *fixtureName, int all, int filterData, int which) {
+  b2Body *body = (b2Body *) body_;
+  for (b2Fixture* f = body->GetFixtureList(); f; f = f->GetNext()) {
+    fixture_data *data = f->GetUserData();
+    if (all || data->name == fixtureName) {
+      b2Filter filter = f->GetFilterData();
+      switch(which) {
+        case 1:
+        filter.categoryBits &= ~filterData;
+        break;
+
+        case 2:
+        filter.maskBits &= ~filterData;
+        break;
+      }
+      f->SetFilterData(filter);
+    }
+  }
 }
 
 void *createRevoluteJoint(void *world_, void *bodyA, void *bodyB, int collideConnected,
@@ -178,26 +273,35 @@ void *createRevoluteJoint(void *world_, void *bodyA, void *bodyB, int collideCon
   return world->world->CreateJoint(&revoluteJointDef);
 }
 
-void *createFixtureCircle(void *body, double r, double offx, double offy, double angle,
+void *createFixtureCircle(void *world_, void *body, double r, double offx, double offy, double angle,
                           double density, double friction, double restitution,
-                          int groupIndex, int categoryBits, int maskBits) {
+                          int groupIndex, int categoryBits, int maskBits,
+                          const char *name) {
   b2CircleShape circleShape;
   circleShape.m_p.Set(offx, offy);
   circleShape.m_radius = r;
-  return createFixture(body, &circleShape, density, friction, restitution, groupIndex, categoryBits, maskBits);
+  return createFixture(world_, body, &circleShape, density, friction, restitution,
+                       groupIndex, categoryBits, maskBits, name);
 }
 
-void *createFixtureBox(void *body, double w, double h, double offx, double offy,
+void *createFixtureBox(void *world_, void *body, double w, double h, double offx, double offy,
                        double angle, double density, double friction, double restitution,
-                       int groupIndex, int categoryBits, int maskBits) {
+                       int groupIndex, int categoryBits, int maskBits,
+                       const char *name) {
   b2PolygonShape box;
   box.SetAsBox(w, h, b2Vec2(offx, offy), angle);
-  return createFixture(body, &box, density, friction, restitution, groupIndex, categoryBits, maskBits);
+  return createFixture(world_, body, &box, density, friction, restitution,
+                       groupIndex, categoryBits, maskBits, name);
 }
 
 void destroy(void *world_, void *body_) {
   world_data *world = (world_data *) world_;
   b2Body *body = (b2Body *) body_;
+
+  for (b2Fixture* f = body->GetFixtureList(); f; f = f->GetNext()) {
+    world->clearFixtureData(f);
+  }
+
   world->world->DestroyBody(body);
 }
 
@@ -336,6 +440,14 @@ double getColVely(void *collision_, int selector) {
   assert(selector == 1 || selector == 2);
   collision_data *collision = (collision_data *) collision_;
   return selector==1 ? collision->one.vely : collision->two.vely;
+}
+
+const char* getColFixtureName(void *collision_, int selector) {
+  assert(selector == 1 || selector == 2);
+  collision_data *collision = (collision_data *) collision_;
+  b2Fixture *fixture = selector==1 ? collision->one.fixture : collision->two.fixture;
+  fixture_data *data = fixture->GetUserData();
+  return data->name.c_str();
 }
 
 int getStart(void *collision_) {

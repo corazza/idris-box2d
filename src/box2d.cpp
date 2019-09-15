@@ -54,20 +54,18 @@ struct MyContactListener : public b2ContactListener {
 };
 
 struct query_result {
-  int query_id;
+  std::string query_initiator;
+  std::string name;
   b2Body *body;
 
-  query_result(int query_id, b2Body *body) :
-    query_id(query_id), body(body) {}
+  query_result(std::string query_initiator, std::string name, b2Body *body) :
+    query_initiator(query_initiator), name(name), body(body) {}
 };
 
 class QueryCallback : public b2QueryCallback {
 public:
-  int query_id;
   std::vector<b2Body *> found;
   std::set<b2Body *> already_found;
-
-  QueryCallback(int query_id) : query_id(query_id) {}
 
   bool ReportFixture(b2Fixture* fixture) {
     auto body = fixture->GetBody();
@@ -90,10 +88,10 @@ struct world_data {
   b2World *world;
   int id_counter;
   MyContactListener *contactListener;
-  // std::vector<QueryCallback*> queries;
   std::set<b2Body *> query_results_set;
   std::queue<query_result> query_results;
   std::vector<fixture_data*> fixtures_data;
+  std::vector<fixture_data*> fixtures_data_to_clean;
 
   world_data(b2World *world)
     : world(world), id_counter(0), contactListener(new MyContactListener) {
@@ -101,6 +99,10 @@ struct world_data {
   }
 
   ~world_data() {
+    for (auto ptr : fixtures_data_to_clean) {
+      delete ptr;
+    }
+
     delete world;
     delete contactListener;
   }
@@ -117,7 +119,7 @@ struct world_data {
     it = find(fixtures_data.begin(), fixtures_data.end(), f->GetUserData());
     if (it != fixtures_data.end()) {
       fixture_data *ptr = *it;
-      delete ptr;
+      fixtures_data_to_clean.push_back(ptr);
       fixtures_data.erase(it);
     }
   }
@@ -135,15 +137,16 @@ void destroyWorld(void *world_) {
   delete world;
 }
 
-void queryAABB(void *world_, int query_id, double lx, double ly, double ux, double uy) {
+void queryAABB(void *world_, const char *query_initiator, const char *name,
+               double lx, double ly, double ux, double uy) {
   world_data *world = (world_data *) world_;
-  QueryCallback queryCallback = QueryCallback(query_id);
+  QueryCallback queryCallback = QueryCallback();
   b2AABB aabb;
   aabb.lowerBound = b2Vec2(lx, ly);
   aabb.upperBound = b2Vec2(ux, uy);
   world->world->QueryAABB(&queryCallback, aabb);
   for (int j = 0; j < queryCallback.found.size(); ++j) {
-    world->query_results.push(query_result(query_id, queryCallback.found[j]));
+    world->query_results.push(query_result(query_initiator, name, queryCallback.found[j]));
   }
 }
 
@@ -381,9 +384,14 @@ void popQuery(void *world_) {
   world->query_results.pop();
 }
 
-int getQueryId(void *result_) {
+const char *getQueryId(void *result_) {
   query_result *result = (query_result *) result_;
-  return result->query_id;
+  return result->query_initiator.c_str();
+}
+
+const char *getQueryName(void *result_) {
+  query_result *result = (query_result *) result_;
+  return result->name.c_str();
 }
 
 int getQueryBodyId(void *result_) {

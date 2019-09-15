@@ -10,6 +10,7 @@ import Physics.Box2D.Defaults
 %link C "box2d.o"
 %include C "box2d.h"
 %flag C "-lBox2D -lstdc++"
+-- %flag C "-g -fno-omit-frame-pointer"
 
 export
 data World = MkWorld Ptr
@@ -26,7 +27,7 @@ public export
 data AABB = MkAABB Vector2D Vector2D -- lower, upper
 
 public export
-data AABBQuery = MkAABBQuery Int AABB -- query_id,
+data AABBQuery = MkAABBQuery String String AABB -- query_initiator, query_name
 
 -- public export
 -- data QueryResult = MkQueryResult Int Body
@@ -34,7 +35,7 @@ data AABBQuery = MkAABBQuery Int AABB -- query_id,
 public export
 data Event = CollisionStart CollisionForBody CollisionForBody
            | CollisionStop CollisionForBody CollisionForBody
-           | QueryResult Int Int Body
+           | QueryResult String String Int Body
 
 export
 createWorld : Vector2D -> IO Box2D.World
@@ -158,9 +159,10 @@ step (MkWorld ptr) = foreign FFI_C "step" (Ptr -> Double -> Int -> Int -> IO ())
 
 export
 queryAABB : Box2D.World -> AABBQuery -> IO ()
-queryAABB (MkWorld ptr) (MkAABBQuery id (MkAABB (lx, ly) (ux, uy)))
-  = foreign FFI_C "queryAABB" (Ptr -> Int -> Double -> Double -> Double -> Double -> IO ())
-              ptr id lx ly ux uy
+queryAABB (MkWorld ptr) (MkAABBQuery id name (MkAABB (lx, ly) (ux, uy)))
+  = foreign FFI_C "queryAABB"
+        (Ptr -> String -> String -> Double -> Double -> Double -> Double -> IO ())
+        ptr id name lx ly ux uy
 
 export
 applyImpulse : Body -> Vector2D -> IO ()
@@ -240,11 +242,12 @@ pollQuery : Box2D.World -> IO (Maybe Event)
 pollQuery (MkWorld w_ptr) = with IO do
   ptr <- foreign FFI_C "topQueryResult" (Ptr -> IO Ptr) w_ptr
   if ptr == null then pure Nothing else with IO do
-    query_id <- foreign FFI_C "getQueryId" (Ptr -> IO Int) ptr
+    query_initiator <- foreign FFI_C "getQueryId" (Ptr -> IO String) ptr
+    query_name <- foreign FFI_C "getQueryName" (Ptr -> IO String) ptr
     body_id <- foreign FFI_C "getQueryBodyId" (Ptr -> IO Int) ptr
     body <- foreign FFI_C "getQueryBody" (Ptr -> IO Ptr) ptr
     foreign FFI_C "popQuery" (Ptr -> IO ()) w_ptr
-    pure $ Just $ QueryResult query_id body_id (MkBody body)
+    pure $ Just $ QueryResult query_initiator query_name body_id (MkBody body)
 
 -- export
 pollQueries : Box2D.World -> IO (List Event)

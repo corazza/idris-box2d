@@ -1,6 +1,6 @@
 CC = g++
 # CFLAGS = -Wall `idris --include` -l:libBox2D.a
-CPPFLAGS = -Wall `idris --include` -lBox2D -fpermissive
+CPPFLAGS = -Wall `idris --include` -lBox2D -fpermissive -g -fno-omit-frame-pointer
 # CPPFLAGS = -fpermissive
 
 # box2d.o: api.o box2d.c box2d.h

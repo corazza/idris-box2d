@@ -37,10 +37,12 @@ void setFilterBit(void *body_, const char *fixtureName, int all, int filterData,
 void unsetFilterBit(void *body_, const char *fixtureName, int all, int filterData, int which);
 
 // disgusting concepts
-void queryAABB(void *world_, int query_id, double lx, double ly, double ux, double uy);
+void queryAABB(void *world_, const char *query_initiator, const char *name,
+               double lx, double ly, double ux, double uy);
 void *topQueryResult(void *world_);
 void popQuery(void *world_);
-int getQueryId(void *result_);
+const char *getQueryId(void *result_);
+const char *getQueryName(void *result_);
 int getQueryBodyId(void *result_);
 void *getQueryBody(void *result_);
 

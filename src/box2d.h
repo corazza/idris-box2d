@@ -28,6 +28,10 @@ void *createFixtureCircle(void *world_, void *body, double r, double offx, doubl
 void *createFixtureBox(void *world_, void *body, double w, double h, double offx, double offy, double angle,
                        double density, double friction, double restitution,
                        int groupIndex, int categoryBits, int maskBits, const char *name);
+void *createFixturePolygon(void *world_, void *body, const char *serialized_,
+                           double density, double friction, double restitution,
+                           int groupIndex, int categoryBits, int maskBits,
+                           const char *name);
 void *createRevoluteJoint(void *world_, void *bodyA, void *bodyB, int collideConnected,
                           double localAnchorAx, double localAnchorAy,
                           double localAnchorBx, double localAnchorBy);

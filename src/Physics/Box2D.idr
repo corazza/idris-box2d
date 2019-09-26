@@ -64,6 +64,10 @@ createBody (MkWorld ptr) (MkBodyDefinition type (x, y) angle fixedRotation bulle
       id <- foreign FFI_C "getId" (Ptr -> IO Int) body
       pure (id, MkBody body)
 
+serializePoints : List Vector2D -> String
+serializePoints [] = ""
+serializePoints ((x, y) :: xs) = cast x ++ " " ++ cast y ++ " " ++ serializePoints xs
+
 export
 createFixture : Box2D.World -> Body -> FixtureDefinition -> IO Fixture
 createFixture (MkWorld world_ptr) (MkBody body_ptr) fd
@@ -87,7 +91,11 @@ createFixture (MkWorld world_ptr) (MkBody body_ptr) fd
              Int -> Int -> Int -> String -> IO Ptr)
             world_ptr body_ptr x y offx offy angle' density' friction' restitution'
             groupIndex' categoryBits' maskBits' name' >>= pure . MkFixture
-          Polygon xs => ?createPolygonShapeFixture
+          Polygon xs => foreign FFI_C "createFixturePolygon"
+            (Ptr -> Ptr -> String -> Double -> Double -> Double -> Int -> Int ->
+             Int -> String -> IO Ptr)
+            world_ptr body_ptr (serializePoints xs) density' friction' restitution'
+            groupIndex' categoryBits' maskBits' name' >>= pure . MkFixture
 
 export
 createFixture' : Box2D.World -> Body -> Shape -> (density' : Double) -> IO Fixture

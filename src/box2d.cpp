@@ -297,6 +297,38 @@ void *createFixtureBox(void *world_, void *body, double w, double h, double offx
                        groupIndex, categoryBits, maskBits, name);
 }
 
+std::string delimiter = " ";
+
+void *createFixturePolygon(void *world_, void *body, const char *serialized_,
+                           double density, double friction, double restitution,
+                           int groupIndex, int categoryBits, int maskBits,
+                           const char *name) {
+  std::string serialized(serialized_);
+  std::vector<double> parsed;
+
+  size_t pos = 0;
+  std::string token;
+  while ((pos = serialized.find(delimiter)) != std::string::npos) {
+      token = serialized.substr(0, pos);
+      if (token.size() > 0) parsed.push_back(stod(token));
+      serialized.erase(0, pos + delimiter.length());
+  }
+
+  b2Vec2 *vertices = (b2Vec2 *) malloc(sizeof(b2Vec2)*parsed.size()/2);
+
+  for (int i = 0; i < parsed.size(); i += 2) {
+    vertices[i/2].Set(parsed[i], parsed[i+1]);
+  }
+
+  b2PolygonShape poly;
+  poly.Set(vertices, parsed.size()/2);
+
+  free(vertices);
+
+  return createFixture(world_, body, &poly, density, friction, restitution,
+                       groupIndex, categoryBits, maskBits, name);
+}
+
 void destroy(void *world_, void *body_) {
   world_data *world = (world_data *) world_;
   b2Body *body = (b2Body *) body_;

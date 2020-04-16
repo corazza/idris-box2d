@@ -91,11 +91,18 @@ createFixture (MkWorld world_ptr) (MkBody body_ptr) fd
              Int -> Int -> Int -> String -> IO Ptr)
             world_ptr body_ptr x y offx offy angle' density' friction' restitution'
             groupIndex' categoryBits' maskBits' name' >>= pure . MkFixture
-          Polygon xs => foreign FFI_C "createFixturePolygon"
-            (Ptr -> Ptr -> String -> Double -> Double -> Double -> Int -> Int ->
-             Int -> String -> IO Ptr)
-            world_ptr body_ptr (serializePoints xs) density' friction' restitution'
-            groupIndex' categoryBits' maskBits' name' >>= pure . MkFixture
+          Polygon xs => (foreign FFI_C "createFixturePolygon"
+            (Ptr -> Ptr -> String -> Int -> Double -> Double -> Double ->
+             Int -> Int -> Int -> String -> IO Ptr)
+            world_ptr body_ptr (serializePoints xs) (fromNat $ length xs) density'
+            friction' restitution' groupIndex' categoryBits' maskBits' name')
+              >>= pure . MkFixture
+          Chain xs => (foreign FFI_C "createFixtureChain"
+            (Ptr -> Ptr -> String -> Int -> Double -> Double -> Double ->
+             Int -> Int -> Int -> String -> IO Ptr)
+            world_ptr body_ptr (serializePoints xs) (fromNat $ length xs) density'
+            friction' restitution' groupIndex' categoryBits' maskBits' name')
+              >>= pure . MkFixture
 
 export
 createFixture' : Box2D.World -> Body -> Shape -> (density' : Double) -> IO Fixture

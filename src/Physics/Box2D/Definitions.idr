@@ -3,6 +3,8 @@ module Physics.Box2D.Definition
 import Physics.Vector2D
 import Physics.Box2D.Defaults
 
+%default total
+
 -- Maybe values usually indicate optional parameters
 
 public export
@@ -42,6 +44,7 @@ public export
 data Shape = Circle Double
            | Box Vector2D
            | Polygon (List Vector2D)
+           | Chain (List Vector2D)
 %name Shape shape
 
 export
@@ -49,6 +52,7 @@ Show Shape where
   show (Circle x) = "circle " ++ show x
   show (Box x) = "box " ++ show x
   show (Polygon xs) = "polygon " ++ show xs
+  show (Chain xs) = "chain " ++ show xs
 
 public export
 record FixtureDefinition where

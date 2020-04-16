@@ -297,12 +297,8 @@ void *createFixtureBox(void *world_, void *body, double w, double h, double offx
                        groupIndex, categoryBits, maskBits, name);
 }
 
-std::string delimiter = " ";
-
-void *createFixturePolygon(void *world_, void *body, const char *serialized_,
-                           double density, double friction, double restitution,
-                           int groupIndex, int categoryBits, int maskBits,
-                           const char *name) {
+void getVertices(b2Vec2 *fill, const char *serialized_) {
+  std::string delimiter = " ";
   std::string serialized(serialized_);
   std::vector<double> parsed;
 
@@ -314,18 +310,36 @@ void *createFixturePolygon(void *world_, void *body, const char *serialized_,
       serialized.erase(0, pos + delimiter.length());
   }
 
-  b2Vec2 *vertices = (b2Vec2 *) malloc(sizeof(b2Vec2)*parsed.size()/2);
-
   for (int i = 0; i < parsed.size(); i += 2) {
-    vertices[i/2].Set(parsed[i], parsed[i+1]);
+    fill[i/2].Set(parsed[i], parsed[i+1]);
   }
+}
 
+void *createFixturePolygon(void *world_, void *body,
+                           const char *serialized, int n_vertices,
+                           double density, double friction, double restitution,
+                           int groupIndex, int categoryBits, int maskBits,
+                           const char *name) {
+  b2Vec2 *vertices = (b2Vec2 *) malloc(sizeof(b2Vec2)*n_vertices);
+  getVertices(vertices, serialized);
   b2PolygonShape poly;
-  poly.Set(vertices, parsed.size()/2);
-
+  poly.Set(vertices, n_vertices);
   free(vertices);
-
   return createFixture(world_, body, &poly, density, friction, restitution,
+                       groupIndex, categoryBits, maskBits, name);
+}
+
+void *createFixtureChain(void *world_, void *body,
+                         const char *serialized, int n_vertices,
+                         double density, double friction, double restitution,
+                         int groupIndex, int categoryBits, int maskBits,
+                         const char *name) {
+  b2Vec2 *vertices = (b2Vec2 *) malloc(sizeof(b2Vec2)*n_vertices);
+  getVertices(vertices, serialized);
+  b2ChainShape chain;
+  chain.CreateChain(vertices, n_vertices);
+  free(vertices);
+  return createFixture(world_, body, &chain, density, friction, restitution,
                        groupIndex, categoryBits, maskBits, name);
 }
 

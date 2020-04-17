@@ -4,6 +4,8 @@ pkgs = contrib
 
 sourcedir = src
 
+version = 0.1.0
+
 modules = Physics.Box2D
         , Physics.Box2D.Definitions
         , Physics.Box2D.Defaults
